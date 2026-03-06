@@ -32,7 +32,9 @@ python server.py
 ```
 
 ### Frontend
-```bash
+
+```
+bash
 cd frontend
 npm install
 npm start
@@ -56,3 +58,26 @@ npm start
 - Предупреждение: #F59E0B (янтарный)
 - Опасность: #EF4444 (красный)
 
+Git Status
+Коммит создан локально:
+
+
+c7e0c41 feat: Maritime CRM system with FastAPI backend and React frontend
+Для запуска:
+
+
+# Backend
+cd backend
+pip install -r requirements.txt
+python server.py
+
+# Frontend  
+cd frontend
+npm install
+npm start
+Для пуша на GitHub требуется авторизация. Выполните в терминале:
+
+
+gh auth login
+# или
+git push -u origin main
