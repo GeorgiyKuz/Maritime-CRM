@@ -7,7 +7,7 @@ const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(() => localStorage.getItem('crewcrm_token'));
+  const [token, setToken] = useState(() => localStorage.getItem('maritimecrm_token'));
   const [loading, setLoading] = useState(true);
 
   const fetchUser = useCallback(async (currentToken) => {
@@ -39,7 +39,7 @@ export const AuthProvider = ({ children }) => {
     const { access_token, user: userData } = response.data;
     
     // Set global first
-    localStorage.setItem('crewcrm_token', access_token);
+    localStorage.setItem('maritimecrm_token', access_token);
     axios.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
     
     // Update state
@@ -60,7 +60,7 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     setToken(null);
     setUser(null);
-    localStorage.removeItem('crewcrm_token');
+    localStorage.removeItem('maritimecrm_token');
     delete axios.defaults.headers.common['Authorization'];
   };
 

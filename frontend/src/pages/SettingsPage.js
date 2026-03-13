@@ -166,7 +166,7 @@ export default function SettingsPage() {
             </div>
             <div>
               <p className="text-sm text-slate-500">{language === 'ru' ? 'Название' : 'Name'}</p>
-              <p className="text-slate-200">CrewCRM</p>
+              <p className="text-slate-200">MaritimeCRM</p>
             </div>
             <div>
               <p className="text-sm text-slate-500">{language === 'ru' ? 'Технологии' : 'Technologies'}</p>

@@ -65,7 +65,7 @@ const Layout = ({ children }) => {
             </div>
             {sidebarOpen && (
               <div>
-                <h1 className="font-heading text-xl font-bold text-white">CrewCRM</h1>
+                <h1 className="font-heading text-xl font-bold text-white">MaritimeCRM</h1>
                 <p className="text-xs text-slate-500">Maritime Management</p>
               </div>
             )}

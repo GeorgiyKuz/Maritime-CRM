@@ -20,7 +20,7 @@ load_dotenv()
 # Settings
 class Settings(BaseSettings):
     mongo_url: str = os.environ.get('MONGO_URL', 'mongodb://localhost:27017')
-    db_name: str = os.environ.get('DB_NAME', 'crewcrm')
+    db_name: str = os.environ.get('DB_NAME', 'Maritime-CRM')
     jwt_secret: str = os.environ.get('JWT_SECRET', 'secret')
     jwt_algorithm: str = os.environ.get('JWT_ALGORITHM', 'HS256')
     jwt_expiration_hours: int = int(os.environ.get('JWT_EXPIRATION_HOURS', '24'))
@@ -36,7 +36,7 @@ db = client[settings.db_name]
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-app = FastAPI(title="CrewCRM API", version="1.0.0")
+app = FastAPI(title="MaritimeCRM API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -255,13 +255,31 @@ class PipelineUpdate(BaseModel):
 
 # Helper functions
 def serialize_doc(doc: dict) -> dict:
+    """Recursively serialize MongoDB document, converting ObjectId to str"""
     if doc is None:
         return None
-    doc["id"] = str(doc.pop("_id"))
-    return doc
+    
+    if isinstance(doc, dict):
+        result = {}
+        for key, value in doc.items():
+            if key == '_id':
+                result['id'] = str(value)
+            else:
+                result[key] = serialize_doc(value)
+        return result
+    elif isinstance(doc, list):
+        return [serialize_doc(item) for item in doc]
+    elif hasattr(doc, 'id'):  # Pydantic with id
+        return doc
+    else:
+        # Handle ObjectId directly
+        try:
+            return str(doc)
+        except:
+            return doc
 
 def serialize_docs(docs: list) -> list:
-    return [serialize_doc(doc) for doc in docs]
+    return [serialize_doc(doc) for doc in docs if doc is not None]
 
 def create_access_token(data: dict) -> str:
     to_encode = data.copy()
@@ -364,9 +382,8 @@ async def create_user(user: UserCreate, current_user = Depends(get_current_user)
     user_dict["password"] = hash_password(user.password)
     user_dict["created_at"] = datetime.now(timezone.utc)
     result = db.users.insert_one(user_dict)
-    user_dict["id"] = str(result.inserted_id)
-    del user_dict["password"]
-    return user_dict
+    created_user = db.users.find_one({"_id": result.inserted_id}, {"password": 0})
+    return serialize_doc(created_user)
 
 @app.delete("/api/users/{user_id}")
 async def delete_user(user_id: str, current_user = Depends(get_current_user)):
@@ -565,18 +582,16 @@ async def create_contract(contract: ContractCreate, current_user = Depends(get_c
     return contract_dict
 
 @app.put("/api/contracts/{contract_id}")
-async def update_contract(contract_id: str, contract: ContractUpdate, authorization: Optional[str] = None):
-    get_current_user(authorization)
+async def update_contract(contract_id: str, contract: ContractUpdate, current_user = Depends(get_current_user)):
     update_data = {k: v for k, v in contract.model_dump().items() if v is not None}
     update_data["updated_at"] = datetime.now(timezone.utc)
     result = db.contracts.update_one({"_id": ObjectId(contract_id)}, {"$set": update_data})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Contract not found")
-    return await get_contract(contract_id, authorization)
+    return await get_contract(contract_id, current_user)
 
 @app.delete("/api/contracts/{contract_id}")
-async def delete_contract(contract_id: str, authorization: Optional[str] = None):
-    get_current_user(authorization)
+async def delete_contract(contract_id: str, current_user = Depends(get_current_user)):
     result = db.contracts.delete_one({"_id": ObjectId(contract_id)})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Contract not found")
@@ -587,9 +602,8 @@ async def delete_contract(contract_id: str, authorization: Optional[str] = None)
 async def get_pipeline(
     vacancy_id: Optional[str] = None,
     stage: Optional[PipelineStage] = None,
-    authorization: Optional[str] = None
+    current_user = Depends(get_current_user)
 ):
-    get_current_user(authorization)
     query = {}
     if vacancy_id:
         query["vacancy_id"] = vacancy_id
@@ -599,17 +613,15 @@ async def get_pipeline(
     return serialize_docs(candidates)
 
 @app.post("/api/pipeline")
-async def add_to_pipeline(candidate: PipelineCandidate, authorization: Optional[str] = None):
-    get_current_user(authorization)
+async def add_to_pipeline(candidate: PipelineCandidate, current_user = Depends(get_current_user)):
     candidate_dict = candidate.model_dump()
     candidate_dict["created_at"] = datetime.now(timezone.utc)
     result = db.pipeline.insert_one(candidate_dict)
     candidate_dict["id"] = str(result.inserted_id)
-    return candidate_dict
+    return serialize_doc(candidate_dict)
 
 @app.put("/api/pipeline/{pipeline_id}")
-async def update_pipeline(pipeline_id: str, update: PipelineUpdate, authorization: Optional[str] = None):
-    get_current_user(authorization)
+async def update_pipeline(pipeline_id: str, update: PipelineUpdate, current_user = Depends(get_current_user)):
     update_data = {k: v for k, v in update.model_dump().items() if v is not None}
     update_data["updated_at"] = datetime.now(timezone.utc)
     result = db.pipeline.update_one({"_id": ObjectId(pipeline_id)}, {"$set": update_data})
@@ -619,8 +631,7 @@ async def update_pipeline(pipeline_id: str, update: PipelineUpdate, authorizatio
     return serialize_doc(entry)
 
 @app.delete("/api/pipeline/{pipeline_id}")
-async def remove_from_pipeline(pipeline_id: str, authorization: Optional[str] = None):
-    get_current_user(authorization)
+async def remove_from_pipeline(pipeline_id: str, current_user = Depends(get_current_user)):
     result = db.pipeline.delete_one({"_id": ObjectId(pipeline_id)})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Pipeline entry not found")
@@ -665,8 +676,7 @@ async def get_dashboard_stats(current_user = Depends(get_current_user)):
     }
 
 @app.get("/api/dashboard/expiring-documents")
-async def get_expiring_documents(authorization: Optional[str] = None):
-    get_current_user(authorization)
+async def get_expiring_documents(current_user = Depends(get_current_user)):
     
     three_months_from_now = datetime.now(timezone.utc) + timedelta(days=90)
     
@@ -741,7 +751,7 @@ async def send_expiry_notifications(background_tasks: BackgroundTasks, authoriza
             <p>Your <strong>{doc['document_type']}</strong> will expire on <strong>{doc['expiry_date']}</strong>.</p>
             <p>Days remaining: <strong>{doc['days_remaining']}</strong></p>
             <p>Please renew your document as soon as possible.</p>
-            <p>Best regards,<br>CrewCRM Team</p>
+            <p>Best regards,<br>MaritimeCRM Team</p>
             """
             background_tasks.add_task(send_email_notification, sailor["email"], subject, html)
             sent_count += 1
@@ -751,7 +761,7 @@ async def send_expiry_notifications(background_tasks: BackgroundTasks, authoriza
 # Health check
 @app.get("/api/health")
 async def health_check():
-    return {"status": "healthy", "service": "crewcrm-api"}
+    return {"status": "healthy", "service": "maritimecrm-api"}
 
 # Seed demo data
 @app.post("/api/seed")
@@ -1185,8 +1195,8 @@ async def seed_demo_data():
             "pipeline": len(pipeline)
         },
         "credentials": {
-            "admin": {"email": "admin@crewcrm.com", "password": "admin123"},
-            "manager": {"email": "manager@crewcrm.com", "password": "manager123"}
+            "admin": {"email": "admin@maritimecrm.com", "password": "admin123"},
+            "manager": {"email": "manager@maritimecrm.com", "password": "manager123"}
         }
     }
 

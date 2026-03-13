@@ -72,7 +72,7 @@ export default function LoginPage() {
             <div className="inline-flex items-center justify-center p-4 bg-primary/10 rounded-xl mb-4">
               <Anchor className="text-primary" size={48} />
             </div>
-            <h1 className="font-heading text-4xl font-bold text-white">CrewCRM</h1>
+            <h1 className="font-heading text-4xl font-bold text-white">MaritimeCRM</h1>
             <p className="text-slate-500 mt-2">
               {language === 'ru' ? 'Система управления морскими экипажами' : 'Maritime Crew Management System'}
             </p>
@@ -99,7 +99,7 @@ export default function LoginPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full pl-10 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-md text-slate-100 placeholder:text-slate-600 focus:border-primary focus:ring-1 focus:ring-primary/20"
-                    placeholder="admin@crewcrm.com"
+                    placeholder="admin@maritimecrm.com"
                     required
                     data-testid="login-email"
                   />
@@ -157,7 +157,7 @@ export default function LoginPage() {
           <div className="mt-4 p-4 bg-slate-900/50 border border-slate-800/50 rounded-md">
             <p className="text-xs text-slate-500 text-center">
               {language === 'ru' ? 'Демо-доступ:' : 'Demo access:'} <br />
-              <span className="font-mono text-slate-400">admin@crewcrm.com / admin123</span>
+                <span className="font-mono text-slate-400">admin@maritimecrm.com / admin123</span>
             </p>
           </div>
         </div>
