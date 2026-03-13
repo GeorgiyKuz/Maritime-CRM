@@ -348,16 +348,14 @@ async def get_me(current_user = Depends(get_current_user)):
 
 # Users management (admin only)
 @app.get("/api/users")
-async def get_users(authorization: Optional[str] = None):
-    current_user = get_current_user(authorization)
+async def get_users(current_user = Depends(get_current_user)):
     if current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Admin access required")
     users = list(db.users.find({}, {"password": 0}))
     return serialize_docs(users)
 
 @app.post("/api/users")
-async def create_user(user: UserCreate, authorization: Optional[str] = None):
-    current_user = get_current_user(authorization)
+async def create_user(user: UserCreate, current_user = Depends(get_current_user)):
     if current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Admin access required")
     if db.users.find_one({"email": user.email}):
@@ -371,8 +369,7 @@ async def create_user(user: UserCreate, authorization: Optional[str] = None):
     return user_dict
 
 @app.delete("/api/users/{user_id}")
-async def delete_user(user_id: str, authorization: Optional[str] = None):
-    current_user = get_current_user(authorization)
+async def delete_user(user_id: str, current_user = Depends(get_current_user)):
     if current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Admin access required")
     result = db.users.delete_one({"_id": ObjectId(user_id)})
@@ -386,9 +383,8 @@ async def get_sailors(
     status: Optional[SailorStatus] = None,
     position: Optional[str] = None,
     search: Optional[str] = None,
-    authorization: Optional[str] = None
+    current_user = Depends(get_current_user)
 ):
-    get_current_user(authorization)
     query = {}
     if status:
         query["status"] = status.value
@@ -404,16 +400,14 @@ async def get_sailors(
     return serialize_docs(sailors)
 
 @app.get("/api/sailors/{sailor_id}")
-async def get_sailor(sailor_id: str, authorization: Optional[str] = None):
-    get_current_user(authorization)
+async def get_sailor(sailor_id: str, current_user = Depends(get_current_user)):
     sailor = db.sailors.find_one({"_id": ObjectId(sailor_id)})
     if not sailor:
         raise HTTPException(status_code=404, detail="Sailor not found")
     return serialize_doc(sailor)
 
 @app.post("/api/sailors")
-async def create_sailor(sailor: SailorCreate, authorization: Optional[str] = None):
-    get_current_user(authorization)
+async def create_sailor(sailor: SailorCreate, current_user = Depends(get_current_user)):
     sailor_dict = sailor.model_dump()
     sailor_dict["created_at"] = datetime.now(timezone.utc)
     sailor_dict["documents"] = [d.model_dump() if hasattr(d, 'model_dump') else d for d in sailor_dict.get("documents", [])]
@@ -423,8 +417,7 @@ async def create_sailor(sailor: SailorCreate, authorization: Optional[str] = Non
     return sailor_dict
 
 @app.put("/api/sailors/{sailor_id}")
-async def update_sailor(sailor_id: str, sailor: SailorUpdate, authorization: Optional[str] = None):
-    get_current_user(authorization)
+async def update_sailor(sailor_id: str, sailor: SailorUpdate, current_user = Depends(get_current_user)):
     update_data = {k: v for k, v in sailor.model_dump().items() if v is not None}
     if "documents" in update_data:
         update_data["documents"] = [d if isinstance(d, dict) else d.model_dump() for d in update_data["documents"]]
@@ -434,11 +427,10 @@ async def update_sailor(sailor_id: str, sailor: SailorUpdate, authorization: Opt
     result = db.sailors.update_one({"_id": ObjectId(sailor_id)}, {"$set": update_data})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Sailor not found")
-    return await get_sailor(sailor_id, authorization)
+    return await get_sailor(sailor_id, current_user)
 
 @app.delete("/api/sailors/{sailor_id}")
-async def delete_sailor(sailor_id: str, authorization: Optional[str] = None):
-    get_current_user(authorization)
+async def delete_sailor(sailor_id: str, current_user = Depends(get_current_user)):
     result = db.sailors.delete_one({"_id": ObjectId(sailor_id)})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Sailor not found")
@@ -446,8 +438,7 @@ async def delete_sailor(sailor_id: str, authorization: Optional[str] = None):
 
 # Companies endpoints
 @app.get("/api/companies")
-async def get_companies(search: Optional[str] = None, authorization: Optional[str] = None):
-    get_current_user(authorization)
+async def get_companies(search: Optional[str] = None, current_user = Depends(get_current_user)):
     query = {}
     if search:
         query["$or"] = [
@@ -458,16 +449,14 @@ async def get_companies(search: Optional[str] = None, authorization: Optional[st
     return serialize_docs(companies)
 
 @app.get("/api/companies/{company_id}")
-async def get_company(company_id: str, authorization: Optional[str] = None):
-    get_current_user(authorization)
+async def get_company(company_id: str, current_user = Depends(get_current_user)):
     company = db.companies.find_one({"_id": ObjectId(company_id)})
     if not company:
         raise HTTPException(status_code=404, detail="Company not found")
     return serialize_doc(company)
 
 @app.post("/api/companies")
-async def create_company(company: CompanyCreate, authorization: Optional[str] = None):
-    get_current_user(authorization)
+async def create_company(company: CompanyCreate, current_user = Depends(get_current_user)):
     company_dict = company.model_dump()
     company_dict["created_at"] = datetime.now(timezone.utc)
     company_dict["contacts"] = [c if isinstance(c, dict) else c.model_dump() for c in company_dict.get("contacts", [])]
@@ -477,8 +466,7 @@ async def create_company(company: CompanyCreate, authorization: Optional[str] = 
     return company_dict
 
 @app.put("/api/companies/{company_id}")
-async def update_company(company_id: str, company: CompanyUpdate, authorization: Optional[str] = None):
-    get_current_user(authorization)
+async def update_company(company_id: str, company: CompanyUpdate, current_user = Depends(get_current_user)):
     update_data = {k: v for k, v in company.model_dump().items() if v is not None}
     if "contacts" in update_data:
         update_data["contacts"] = [c if isinstance(c, dict) else c.model_dump() for c in update_data["contacts"]]
@@ -488,11 +476,10 @@ async def update_company(company_id: str, company: CompanyUpdate, authorization:
     result = db.companies.update_one({"_id": ObjectId(company_id)}, {"$set": update_data})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Company not found")
-    return await get_company(company_id, authorization)
+    return await get_company(company_id, current_user)
 
 @app.delete("/api/companies/{company_id}")
-async def delete_company(company_id: str, authorization: Optional[str] = None):
-    get_current_user(authorization)
+async def delete_company(company_id: str, current_user = Depends(get_current_user)):
     result = db.companies.delete_one({"_id": ObjectId(company_id)})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Company not found")
@@ -504,9 +491,8 @@ async def get_vacancies(
     status: Optional[VacancyStatus] = None,
     company_id: Optional[str] = None,
     vessel_type: Optional[VesselType] = None,
-    authorization: Optional[str] = None
+    current_user = Depends(get_current_user)
 ):
-    get_current_user(authorization)
     query = {}
     if status:
         query["status"] = status.value
@@ -518,16 +504,14 @@ async def get_vacancies(
     return serialize_docs(vacancies)
 
 @app.get("/api/vacancies/{vacancy_id}")
-async def get_vacancy(vacancy_id: str, authorization: Optional[str] = None):
-    get_current_user(authorization)
+async def get_vacancy(vacancy_id: str, current_user = Depends(get_current_user)):
     vacancy = db.vacancies.find_one({"_id": ObjectId(vacancy_id)})
     if not vacancy:
         raise HTTPException(status_code=404, detail="Vacancy not found")
     return serialize_doc(vacancy)
 
 @app.post("/api/vacancies")
-async def create_vacancy(vacancy: VacancyCreate, authorization: Optional[str] = None):
-    get_current_user(authorization)
+async def create_vacancy(vacancy: VacancyCreate, current_user = Depends(get_current_user)):
     vacancy_dict = vacancy.model_dump()
     vacancy_dict["created_at"] = datetime.now(timezone.utc)
     result = db.vacancies.insert_one(vacancy_dict)
@@ -535,18 +519,16 @@ async def create_vacancy(vacancy: VacancyCreate, authorization: Optional[str] = 
     return vacancy_dict
 
 @app.put("/api/vacancies/{vacancy_id}")
-async def update_vacancy(vacancy_id: str, vacancy: VacancyUpdate, authorization: Optional[str] = None):
-    get_current_user(authorization)
+async def update_vacancy(vacancy_id: str, vacancy: VacancyUpdate, current_user = Depends(get_current_user)):
     update_data = {k: v for k, v in vacancy.model_dump().items() if v is not None}
     update_data["updated_at"] = datetime.now(timezone.utc)
     result = db.vacancies.update_one({"_id": ObjectId(vacancy_id)}, {"$set": update_data})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Vacancy not found")
-    return await get_vacancy(vacancy_id, authorization)
+    return await get_vacancy(vacancy_id, current_user)
 
 @app.delete("/api/vacancies/{vacancy_id}")
-async def delete_vacancy(vacancy_id: str, authorization: Optional[str] = None):
-    get_current_user(authorization)
+async def delete_vacancy(vacancy_id: str, current_user = Depends(get_current_user)):
     result = db.vacancies.delete_one({"_id": ObjectId(vacancy_id)})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Vacancy not found")
@@ -557,9 +539,8 @@ async def delete_vacancy(vacancy_id: str, authorization: Optional[str] = None):
 async def get_contracts(
     status: Optional[ContractStatus] = None,
     sailor_id: Optional[str] = None,
-    authorization: Optional[str] = None
+    current_user = Depends(get_current_user)
 ):
-    get_current_user(authorization)
     query = {}
     if status:
         query["status"] = status.value
@@ -569,16 +550,14 @@ async def get_contracts(
     return serialize_docs(contracts)
 
 @app.get("/api/contracts/{contract_id}")
-async def get_contract(contract_id: str, authorization: Optional[str] = None):
-    get_current_user(authorization)
+async def get_contract(contract_id: str, current_user = Depends(get_current_user)):
     contract = db.contracts.find_one({"_id": ObjectId(contract_id)})
     if not contract:
         raise HTTPException(status_code=404, detail="Contract not found")
     return serialize_doc(contract)
 
 @app.post("/api/contracts")
-async def create_contract(contract: ContractCreate, authorization: Optional[str] = None):
-    get_current_user(authorization)
+async def create_contract(contract: ContractCreate, current_user = Depends(get_current_user)):
     contract_dict = contract.model_dump()
     contract_dict["created_at"] = datetime.now(timezone.utc)
     result = db.contracts.insert_one(contract_dict)
@@ -669,8 +648,7 @@ async def find_candidates(vacancy_id: str, authorization: Optional[str] = None):
 
 # Dashboard stats
 @app.get("/api/dashboard/stats")
-async def get_dashboard_stats(authorization: Optional[str] = None):
-    get_current_user(authorization)
+async def get_dashboard_stats(current_user = Depends(get_current_user)):
     
     total_sailors = db.sailors.count_documents({})
     available_sailors = db.sailors.count_documents({"status": SailorStatus.AVAILABLE.value})
