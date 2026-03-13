@@ -1,5 +1,6 @@
-from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks, Query
+from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks, Query, Header
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPBearer
 from pydantic import BaseModel, EmailStr, Field
 from pydantic_settings import BaseSettings
 from typing import Optional, List
@@ -274,12 +275,13 @@ def verify_password(plain: str, hashed: str) -> bool:
 def hash_password(password: str) -> str:
     return pwd_context.hash(password)
 
-def get_current_user(authorization: str = None) -> dict:
-    if not authorization or not authorization.startswith("Bearer "):
+security = HTTPBearer()
+
+def get_current_user(token: str = Depends(security)) -> dict:
+    if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    token = authorization.split(" ")[1]
     try:
-        payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
+        payload = jwt.decode(token.credentials, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
         user_id = payload.get("sub")
         if not user_id:
             raise HTTPException(status_code=401, detail="Invalid token")
@@ -341,8 +343,8 @@ async def login(credentials: UserLogin):
     )
 
 @app.get("/api/auth/me")
-async def get_me_header(authorization: Optional[str] = None):
-    return get_current_user(authorization)
+async def get_me(current_user = Depends(get_current_user)):
+    return current_user
 
 # Users management (admin only)
 @app.get("/api/users")

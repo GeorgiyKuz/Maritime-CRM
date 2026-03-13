@@ -12,6 +12,7 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [seeding, setSeeding] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
   
   const { login } = useAuth();
   const { t, language, toggleLanguage } = useLanguage();
@@ -21,12 +22,16 @@ export default function LoginPage() {
     e.preventDefault();
     setError('');
     setLoading(true);
+    setRedirecting(false);
 
     try {
       await login(email, password);
-      navigate('/');
+      setRedirecting(true);
+      // Give context time to update and navigate
+      setTimeout(() => navigate('/'), 500);
     } catch (err) {
-      setError(t('invalidCredentials'));
+      setError(t('invalidCredentials') || err.message || 'Login failed');
+      console.error('Login error:', err);
     } finally {
       setLoading(false);
     }
@@ -119,11 +124,12 @@ export default function LoginPage() {
 
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || redirecting}
                 className="w-full py-3 bg-primary hover:bg-primary-hover text-white font-medium rounded-md shadow-lg shadow-primary/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 data-testid="login-submit"
               >
-                {loading ? (language === 'ru' ? 'Вход...' : 'Signing in...') : t('signIn')}
+                {redirecting ? (language === 'ru' ? 'Перенаправление...' : 'Redirecting...') : 
+                 loading ? (language === 'ru' ? 'Вход...' : 'Signing in...') : t('signIn')}
               </button>
             </form>
 

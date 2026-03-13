@@ -13,6 +13,7 @@ import {
   Ship
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useAuth } from '../contexts/AuthContext';
 import { 
   getDashboardStats, 
   getExpiringDocuments, 
@@ -20,7 +21,7 @@ import {
   getRecentSailors,
   sendExpiryNotifications 
 } from '../utils/api';
-import { formatDate, daysUntil, cn } from '../utils/helpers';
+import { formatDate, cn } from '../utils/helpers';
 import { toast } from 'sonner';
 
 const StatCard = ({ icon: Icon, label, value, color, link }) => (
@@ -47,19 +48,29 @@ const StatCard = ({ icon: Icon, label, value, color, link }) => (
 
 export default function DashboardPage() {
   const { t, language } = useLanguage();
+  const { isAuthenticated, loading: authLoading } = useAuth();
+  
   const [stats, setStats] = useState(null);
   const [expiringDocs, setExpiringDocs] = useState([]);
   const [rotations, setRotations] = useState([]);
   const [recentSailors, setRecentSailors] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [dataLoading, setDataLoading] = useState(true);
   const [sendingNotifications, setSendingNotifications] = useState(false);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    loadDashboardData();
-  }, []);
+    if (isAuthenticated && !authLoading && !dataLoading) {
+      loadDashboardData();
+    }
+  }, [isAuthenticated, authLoading]);
 
   const loadDashboardData = async () => {
+    if (!isAuthenticated || authLoading || dataLoading) {
+      return;
+    }
+
     try {
+      setDataLoading(true);
       const [statsRes, expiringRes, rotationsRes, recentRes] = await Promise.all([
         getDashboardStats(),
         getExpiringDocuments(),
@@ -73,11 +84,15 @@ export default function DashboardPage() {
     } catch (error) {
       toast.error(language === 'ru' ? 'Ошибка загрузки данных' : 'Failed to load data');
     } finally {
-      setLoading(false);
+      setDataLoading(false);
     }
   };
 
   const handleSendNotifications = async () => {
+    if (!isAuthenticated || authLoading || sendingNotifications || expiringDocs.length === 0) {
+      return;
+    }
+
     setSendingNotifications(true);
     try {
       await sendExpiryNotifications();
@@ -89,7 +104,7 @@ export default function DashboardPage() {
     }
   };
 
-  if (loading) {
+  if (dataLoading || authLoading) {
     return (
       <div className="animate-fade-in">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
@@ -110,7 +125,6 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
         <StatCard 
           icon={Users} 
@@ -149,9 +163,7 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Expiring Documents */}
         <div className="lg:col-span-2 bg-maritime-card border border-slate-800 rounded-md overflow-hidden">
           <div className="p-4 border-b border-slate-800 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -226,7 +238,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Recent Sailors */}
         <div className="bg-maritime-card border border-slate-800 rounded-md overflow-hidden">
           <div className="p-4 border-b border-slate-800">
             <div className="flex items-center gap-2">
@@ -274,7 +285,6 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Upcoming Rotations */}
       {rotations.length > 0 && (
         <div className="mt-6 bg-maritime-card border border-slate-800 rounded-md overflow-hidden">
           <div className="p-4 border-b border-slate-800">

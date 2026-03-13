@@ -89,6 +89,7 @@ const AppRoutes = () => {
           </Layout>
         </PrivateRoute>
       } />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 };
